@@ -160,42 +160,42 @@ resource "aws_route_table" "database" {
 
 # Resource definition for route for public, attaching with IGW for internet traffic
 resource "aws_route" "public" {
-  route_table_id = aws_route_table.public.id
+  route_table_id         = aws_route_table.public.id
   destination_cidr_block = "0.0.0.0/0"
-  gateway_id = aws_internet_gateway.main.id
+  gateway_id             = aws_internet_gateway.main.id
 }
 
 # Resource definition for route for private, attaching with NAT gateway for internet traffic
 resource "aws_route" "private_nat" {
-  route_table_id = aws_route_table.private.id
+  route_table_id         = aws_route_table.private.id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id = aws_nat_gateway.this.id
+  nat_gateway_id         = aws_nat_gateway.this.id
 }
 
 # Resource definition for route for database, attaching with NAT gateway for internet traffic
 resource "aws_route" "database_nat" {
-  route_table_id = aws_route_table.database.id
+  route_table_id         = aws_route_table.database.id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id = aws_nat_gateway.this.id
+  nat_gateway_id         = aws_nat_gateway.this.id
 }
 
 # Route table Association with 2 public subnets
 resource "aws_route_table_association" "public" {
- count = length(var.public_subnet_cidrs)
- subnet_id = aws_subnet.public[count.index].id
- route_table_id = aws_route_table.public.id
+  count          = length(var.public_subnet_cidrs)
+  subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
 }
 
 # Route table Association with 2 private subnets
 resource "aws_route_table_association" "private" {
-  count = length(var.private_subnet_cidrs)
-  subnet_id = aws_subnet.private[count.index].id
+  count          = length(var.private_subnet_cidrs)
+  subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private.id
 }
 
 # Route table Association with 2 database subnets
 resource "aws_route_table_association" "database" {
-  count = length(var.database_subnet_cidrs)
-  subnet_id = aws_subnet.database[count.index].id
+  count          = length(var.database_subnet_cidrs)
+  subnet_id      = aws_subnet.database[count.index].id
   route_table_id = aws_route_table.database.id
 }
