@@ -1,3 +1,4 @@
+# Resource definition for VPC
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr_block
   instance_tenancy     = "default"
@@ -12,6 +13,7 @@ resource "aws_vpc" "main" {
   )
 }
 
+# Resource definition for IGW - Attaching to VPC
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
@@ -24,6 +26,7 @@ resource "aws_internet_gateway" "main" {
   )
 }
 
+# Resource definition for public subnet - Attaching to VPC, creating 2 subnets in 2 AZ zones
 resource "aws_subnet" "public" {
   count                   = length(var.public_subnet_cidrs)
   vpc_id                  = aws_vpc.main.id
@@ -40,6 +43,7 @@ resource "aws_subnet" "public" {
   )
 }
 
+# Resource definition for private subnet - Attaching to VPC, creating 2 subnets in 2 AZ zones
 resource "aws_subnet" "private" {
   count             = length(var.private_subnet_cidrs)
   vpc_id            = aws_vpc.main.id
@@ -55,6 +59,7 @@ resource "aws_subnet" "private" {
   )
 }
 
+# Resource definition for database subnet - Attaching to VPC, creating 2 subnets in 2 AZ zones
 resource "aws_subnet" "database" {
   count             = length(var.database_subnet_cidrs)
   vpc_id            = aws_vpc.main.id
@@ -97,6 +102,7 @@ resource "aws_eip" "nat" {
   )
 }
 
+# Resource definition for NAT Gateway - EIP, subnet allocation(1 public subnet)
 resource "aws_nat_gateway" "this" {
   allocation_id = aws_eip.nat.id
   subnet_id     = aws_subnet.public[0].id
@@ -113,3 +119,83 @@ resource "aws_nat_gateway" "this" {
   depends_on = [aws_internet_gateway.main]
 }
 
+# Resource definition for Public Route Table
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  tags = merge(
+    var.common_tags,
+    var.public_route_table_tags,
+    {
+      Name = "${local.resource_name}-public"
+    }
+  )
+}
+
+# Resource definition for Private Route Table
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.main.id
+
+  tags = merge(
+    var.common_tags,
+    var.private_route_table_tags,
+    {
+      Name = "${local.resource_name}-private"
+    }
+  )
+}
+
+# Resource definition for database Route Table
+resource "aws_route_table" "database" {
+  vpc_id = aws_vpc.main.id
+
+  tags = merge(
+    var.common_tags,
+    var.database_route_table_tags,
+    {
+      Name = "${local.resource_name}-database"
+    }
+  )
+}
+
+# Resource definition for route for public, attaching with IGW for internet traffic
+resource "aws_route" "public" {
+  route_table_id = aws_route_table.public.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id = aws_internet_gateway.main.id
+}
+
+# Resource definition for route for private, attaching with NAT gateway for internet traffic
+resource "aws_route" "private_nat" {
+  route_table_id = aws_route_table.private.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id = aws_nat_gateway.this.id
+}
+
+# Resource definition for route for database, attaching with NAT gateway for internet traffic
+resource "aws_route" "database_nat" {
+  route_table_id = aws_route_table.database.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id = aws_nat_gateway.this.id
+}
+
+# Route table Association with 2 public subnets
+resource "aws_route_table_association" "public" {
+ count = length(var.public_subnet_cidrs)
+ subnet_id = aws_subnet.public[count.index].id
+ route_table_id = aws_route_table.public.id
+}
+
+# Route table Association with 2 private subnets
+resource "aws_route_table_association" "private" {
+  count = length(var.private_subnet_cidrs)
+  subnet_id = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private.id
+}
+
+# Route table Association with 2 database subnets
+resource "aws_route_table_association" "database" {
+  count = length(var.database_subnet_cidrs)
+  subnet_id = aws_subnet.database[count.index].id
+  route_table_id = aws_route_table.database.id
+}
